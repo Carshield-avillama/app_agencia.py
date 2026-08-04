@@ -20,7 +20,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("PORTAL DE SERVICIOS B2B")
+st.title("Solicitud de cerámicos V clean")
 st.markdown("<h4 style='text-align: center;'>Solicitud de Recubrimientos Cerámicos</h4>", unsafe_allow_html=True)
 st.write("---")
 
@@ -38,12 +38,12 @@ def enviar_notificacion_vendedor(destinatario, vehiculo, id_sol):
             
             cuerpo = f"""Hola,
             
-Te informamos que el vehículo {vehiculo} (Solicitud: {id_sol}) ya ha sido terminado por nuestro equipo en Carshield Coatings.
+Te informamos que el vehículo {vehiculo} (Solicitud: {id_sol}) ya ha sido terminado por nuestro equipo V clean.
 
-El auto está listo en nuestras instalaciones para que coordinen su entrega.
+El auto está listo para que coordinen su entrega.
 
 Saludos cordiales,
-Equipo Carshield Coatings"""
+Equipo V clean"""
             
             msg.attach(MIMEText(cuerpo, 'plain'))
             
@@ -55,6 +55,48 @@ Equipo Carshield Coatings"""
             return True
     except Exception as e:
         st.error(f"Error interno enviando correo: {e}")
+        return False
+    return False
+
+def enviar_notificacion_admin(vehiculo, id_sol, fecha_req, solicitante, vendedor, notas):
+    try:
+        if "email_config" in st.secrets:
+            remitente = st.secrets["email_config"]["correo"]
+            password = st.secrets["email_config"]["clave"]
+            destinatario = remitente # Se envía al mismo correo de Carshield configurado en los secrets
+            
+            msg = MIMEMultipart()
+            msg['From'] = remitente
+            msg['To'] = destinatario
+            msg['Subject'] = f"🔔 Nueva Solicitud de Agencia: {vehiculo}"
+            
+            cuerpo = f"""Hola equipo,
+            
+Se ha registrado una nueva solicitud de servicio desde el portal de agencias B2B.
+
+Detalles de la solicitud:
+- ID: {id_sol}
+- Vehículo: {vehiculo}
+- Solicitante: {solicitante}
+- Vendedor Asignado: {vendedor}
+- Fecha Requerida: {fecha_req}
+- Observaciones: {notas if notas else 'Ninguna'}
+
+Por favor, revisen el portal de operaciones para actualizar el estatus cuando se reciba el vehículo.
+
+Saludos,
+Sistema Automático Carshield"""
+            
+            msg.attach(MIMEText(cuerpo, 'plain'))
+            
+            server = smtplib.SMTP('smtp.gmail.com', 587)
+            server.starttls()
+            server.login(remitente, password)
+            server.sendmail(remitente, destinatario, msg.as_string())
+            server.quit()
+            return True
+    except Exception as e:
+        # Se silencia el error para no asustar al cliente de la agencia si el correo falla
         return False
     return False
 
@@ -84,13 +126,10 @@ df = load_data()
 # --- SISTEMA DE SEGURIDAD Y NAVEGACIÓN ---
 st.sidebar.markdown("### Menú de Acceso")
 
-# 1. Definir la contraseña de administrador
-PASSWORD_ADMIN = "Vclean2026"
+PASSWORD_ADMIN = "Vclean1993"
 
-# 2. Crear un campo de contraseña en la barra lateral
 clave_ingresada = st.sidebar.text_input("🔒 Acceso Administrativo", type="password", help="Solo para personal de Carshield")
 
-# 3. Lógica para mostrar u ocultar pestañas
 if clave_ingresada == PASSWORD_ADMIN:
     st.sidebar.success("Acceso interno concedido")
     menu = ["1. Nueva Solicitud (Agencia)", "2. Operaciones (Taller)", "3. Control de Facturación"]
@@ -133,6 +172,10 @@ if choice == "1. Nueva Solicitud (Agencia)":
                     str(fecha_req), "Recibido / Pendiente", "Pendiente de Facturar", "", notas
                 ]
                 hoja_agencia.append_row(nueva_fila)
+                
+                # --- NUEVA FUNCIÓN: Enviar correo de notificación a administración ---
+                enviar_notificacion_admin(vehiculo, nuevo_id, fecha_req, solicitante, vendedor, notas)
+                
                 st.success(f"✅ Solicitud {nuevo_id} enviada exitosamente. El taller ha sido notificado.")
             else:
                 st.error("⚠️ Por favor, complete todos los campos marcados con asterisco (*).")
