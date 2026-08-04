@@ -20,37 +20,41 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("Solicitud de cerámicos V clean")
+st.title("PORTAL DE SERVICIOS B2B")
 st.markdown("<h4 style='text-align: center;'>Solicitud de Recubrimientos Cerámicos</h4>", unsafe_allow_html=True)
 st.write("---")
 
 # --- FUNCIONES DE CORREO ---
-def enviar_notificacion_vendedor(destinatario, vehiculo, id_sol):
+def enviar_notificacion_vendedor(destinatario_principal, destinatario_secundario, vehiculo, modelo, id_sol):
     try:
         if "email_config" in st.secrets:
             remitente = st.secrets["email_config"]["correo"]
             password = st.secrets["email_config"]["clave"]
             
+            destinatarios = [destinatario_principal]
+            if destinatario_secundario and "@" in str(destinatario_secundario):
+                destinatarios.append(destinatario_secundario)
+            
             msg = MIMEMultipart()
             msg['From'] = remitente
-            msg['To'] = destinatario
-            msg['Subject'] = f"✅ Vehículo Listo para Entrega: {vehiculo}"
+            msg['To'] = ", ".join(destinatarios)
+            msg['Subject'] = f"✅ Vehículo Listo para Entrega: {vehiculo} {modelo}"
             
             cuerpo = f"""Hola,
             
-Te informamos que el vehículo {vehiculo} (Solicitud: {id_sol}) ya ha sido terminado por nuestro equipo V clean.
+Te informamos que el vehículo {vehiculo} (Modelo: {modelo}) (Solicitud: {id_sol}) ya ha sido terminado por nuestro equipo en Carshield Coatings.
 
-El auto está listo para que coordinen su entrega.
+El auto está listo en nuestras instalaciones para que coordinen su entrega.
 
 Saludos cordiales,
-Equipo V clean"""
+Equipo Carshield Coatings"""
             
             msg.attach(MIMEText(cuerpo, 'plain'))
             
             server = smtplib.SMTP('smtp.gmail.com', 587)
             server.starttls()
             server.login(remitente, password)
-            server.sendmail(remitente, destinatario, msg.as_string())
+            server.sendmail(remitente, destinatarios, msg.as_string())
             server.quit()
             return True
     except Exception as e:
@@ -58,17 +62,19 @@ Equipo V clean"""
         return False
     return False
 
-def enviar_notificacion_admin(vehiculo, id_sol, fecha_req, solicitante, vendedor, notas):
+def enviar_notificacion_admin(vehiculo, modelo, id_sol, fecha_req, solicitante, vendedor, correo_sec, notas):
     try:
         if "email_config" in st.secrets:
             remitente = st.secrets["email_config"]["correo"]
             password = st.secrets["email_config"]["clave"]
-            destinatario = remitente # Se envía al mismo correo de Carshield configurado en los secrets
+            destinatario = remitente 
             
             msg = MIMEMultipart()
             msg['From'] = remitente
             msg['To'] = destinatario
-            msg['Subject'] = f"🔔 Nueva Solicitud de Agencia: {vehiculo}"
+            msg['Subject'] = f"🔔 Nueva Solicitud de Agencia: {vehiculo} {modelo}"
+            
+            correo_extra_texto = correo_sec if (correo_sec and "@" in str(correo_sec)) else "Ninguno"
             
             cuerpo = f"""Hola equipo,
             
@@ -76,9 +82,11 @@ Se ha registrado una nueva solicitud de servicio desde el portal de agencias B2B
 
 Detalles de la solicitud:
 - ID: {id_sol}
-- Vehículo: {vehiculo}
+- Vehículo (Marca/Placa): {vehiculo}
+- Modelo: {modelo}
 - Solicitante: {solicitante}
 - Vendedor Asignado: {vendedor}
+- Correo Secundario a notificar: {correo_extra_texto}
 - Fecha Requerida: {fecha_req}
 - Observaciones: {notas if notas else 'Ninguna'}
 
@@ -96,7 +104,6 @@ Sistema Automático Carshield"""
             server.quit()
             return True
     except Exception as e:
-        # Se silencia el error para no asustar al cliente de la agencia si el correo falla
         return False
     return False
 
@@ -118,7 +125,7 @@ except Exception as e:
 def load_data():
     records = hoja_agencia.get_all_records()
     if not records:
-        return pd.DataFrame(columns=["ID_Solicitud", "Fecha_Solicitud", "Solicitante", "Vendedor", "Correo_Vendedor", "Vehiculo_Placa_VIN", "Fecha_Requerida", "Estado_Servicio", "Estado_Facturacion", "Num_Factura", "Observaciones"])
+        return pd.DataFrame(columns=["ID_Solicitud", "Fecha_Solicitud", "Solicitante", "Vendedor", "Correo_Vendedor", "Correo_Secundario", "Vehiculo_Placa_VIN", "Modelo", "Fecha_Requerida", "Estado_Servicio", "Estado_Facturacion", "Num_Factura", "Observaciones"])
     return pd.DataFrame(records)
 
 df = load_data()
@@ -153,9 +160,11 @@ if choice == "1. Nueva Solicitud (Agencia)":
         with col1:
             solicitante = st.text_input("¿Quién solicita el servicio? (Nombre) *")
             vendedor = st.text_input("Nombre del vendedor asignado al auto *")
-            correo_vendedor = st.text_input("Correo electrónico del vendedor (Para notificarle cuando esté listo) *")
+            correo_vendedor = st.text_input("Correo electrónico principal *")
+            correo_secundario = st.text_input("Correo electrónico secundario (Opcional)")
         with col2:
-            vehiculo = st.text_input("Placa/VIN completo *")
+            vehiculo = st.text_input("Marca, Color y Placa/VIN *")
+            modelo_auto = st.text_input("Modelo del auto *")
             fecha_req = st.date_input("Fecha para la que necesitan el auto listo *")
             
         notas = st.text_area("Servicios específicos u observaciones extra")
@@ -163,18 +172,17 @@ if choice == "1. Nueva Solicitud (Agencia)":
         submit = st.form_submit_button("Enviar Solicitud al Taller")
         
         if submit:
-            if solicitante and vendedor and correo_vendedor and vehiculo:
+            if solicitante and vendedor and correo_vendedor and vehiculo and modelo_auto:
                 nuevo_id = "AG-" + str(len(df) + 1).zfill(4)
                 fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M")
                 
                 nueva_fila = [
-                    nuevo_id, fecha_actual, solicitante, vendedor, correo_vendedor, vehiculo,
+                    nuevo_id, fecha_actual, solicitante, vendedor, correo_vendedor, correo_secundario, vehiculo, modelo_auto,
                     str(fecha_req), "Recibido / Pendiente", "Pendiente de Facturar", "", notas
                 ]
                 hoja_agencia.append_row(nueva_fila)
                 
-                # --- NUEVA FUNCIÓN: Enviar correo de notificación a administración ---
-                enviar_notificacion_admin(vehiculo, nuevo_id, fecha_req, solicitante, vendedor, notas)
+                enviar_notificacion_admin(vehiculo, modelo_auto, nuevo_id, fecha_req, solicitante, vendedor, correo_secundario, notas)
                 
                 st.success(f"✅ Solicitud {nuevo_id} enviada exitosamente. El taller ha sido notificado.")
             else:
@@ -189,7 +197,7 @@ elif choice == "2. Operaciones (Taller)":
     if not df.empty:
         pendientes = df[df['Estado_Servicio'] != "Terminado y Entregado"]
         if not pendientes.empty:
-            st.dataframe(pendientes[["ID_Solicitud", "Vehiculo_Placa_VIN", "Fecha_Requerida", "Estado_Servicio"]], use_container_width=True)
+            st.dataframe(pendientes[["ID_Solicitud", "Vehiculo_Placa_VIN", "Modelo", "Fecha_Requerida", "Estado_Servicio"]], use_container_width=True)
             
             st.write("---")
             st.subheader("Actualizar Estado del Auto")
@@ -207,21 +215,24 @@ elif choice == "2. Operaciones (Taller)":
                         
                         if st.form_submit_button("Actualizar Taller"):
                             if nuevo_estado == "Terminado y Entregado" and estado_actual != "Terminado y Entregado":
-                                correo_dest = filtro.loc[idx, "Correo_Vendedor"]
+                                correo_dest = str(filtro.loc[idx, "Correo_Vendedor"])
+                                correo_sec = str(filtro.loc[idx, "Correo_Secundario"])
                                 vehiculo_info = filtro.loc[idx, "Vehiculo_Placa_VIN"]
+                                modelo_info = filtro.loc[idx, "Modelo"]
                                 
-                                hoja_agencia.update(range_name=f"H{fila_sheet}:H{fila_sheet}", values=[[nuevo_estado]])
+                                # Actualizar la columna J (Estado de Servicio)
+                                hoja_agencia.update(range_name=f"J{fila_sheet}:J{fila_sheet}", values=[[nuevo_estado]])
                                 
                                 if correo_dest and "@" in correo_dest:
-                                    enviado = enviar_notificacion_vendedor(correo_dest, vehiculo_info, id_buscar)
+                                    enviado = enviar_notificacion_vendedor(correo_dest, correo_sec, vehiculo_info, modelo_info, id_buscar)
                                     if enviado:
-                                        st.success("✅ Estado actualizado. Se ha enviado un correo automático al vendedor de la agencia indicando que el auto está listo.")
+                                        st.success("✅ Estado actualizado. Se ha enviado un correo al vendedor (y al correo secundario si aplicaba) indicando que el auto está listo.")
                                     else:
-                                        st.warning("✅ Estado actualizado a 'Terminado'. (Hubo un problema enviando el correo al vendedor).")
+                                        st.warning("✅ Estado actualizado a 'Terminado'. (Hubo un problema enviando el correo).")
                                 else:
                                     st.success("✅ Estado actualizado a 'Terminado'. (No se envió correo por falta de dirección válida).")
                             else:
-                                hoja_agencia.update(range_name=f"H{fila_sheet}:H{fila_sheet}", values=[[nuevo_estado]])
+                                hoja_agencia.update(range_name=f"J{fila_sheet}:J{fila_sheet}", values=[[nuevo_estado]])
                                 st.success("✅ Estado actualizado correctamente.")
                 else:
                     st.warning("ID no encontrado.")
@@ -241,7 +252,7 @@ elif choice == "3. Control de Facturación":
         
         st.subheader("⚠️ Vehículos Listos Pendientes de Facturar")
         if not por_facturar.empty:
-            st.dataframe(por_facturar[["ID_Solicitud", "Vehiculo_Placa_VIN", "Vendedor", "Estado_Facturacion"]], use_container_width=True)
+            st.dataframe(por_facturar[["ID_Solicitud", "Vehiculo_Placa_VIN", "Modelo", "Vendedor", "Estado_Facturacion"]], use_container_width=True)
             
             st.write("---")
             st.subheader("Registrar Factura Emitida")
@@ -257,7 +268,8 @@ elif choice == "3. Control de Facturación":
                     
                     if st.form_submit_button("Marcar como Facturado"):
                         if num_factura:
-                            hoja_agencia.update(range_name=f"I{fila_sheet_fac}:J{fila_sheet_fac}", values=[["Facturado", num_factura]])
+                            # Actualiza Estado_Facturacion (K) y Num_Factura (L)
+                            hoja_agencia.update(range_name=f"K{fila_sheet_fac}:L{fila_sheet_fac}", values=[["Facturado", num_factura]])
                             st.success(f"✅ El vehículo {id_fac} ha sido facturado correctamente con la factura {num_factura}.")
                         else:
                             st.error("⚠️ Debe ingresar el número de factura.")
@@ -267,6 +279,6 @@ elif choice == "3. Control de Facturación":
         st.write("---")
         with st.expander("Ver Historial de Autos Facturados"):
             facturados = df[df['Estado_Facturacion'] == "Facturado"]
-            st.dataframe(facturados[["ID_Solicitud", "Fecha_Solicitud", "Vehiculo_Placa_VIN", "Num_Factura"]], use_container_width=True)
+            st.dataframe(facturados[["ID_Solicitud", "Fecha_Solicitud", "Vehiculo_Placa_VIN", "Modelo", "Num_Factura"]], use_container_width=True)
     else:
         st.info("La base de datos está vacía.")
