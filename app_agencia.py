@@ -8,7 +8,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 # --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Portal Agencia - Recubrimientos", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="Servicios de recubrimientos - Recubrimientos", page_icon="🏢", layout="wide")
 
 st.markdown("""
     <style>
@@ -20,7 +20,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("PORTAL DE SERVICIOS Autostar")
+st.title("PORTAL DE SERVICIOS ASV y PMI")
 st.markdown("<h4 style='text-align: center;'>Solicitud de Recubrimientos Cerámicos</h4>", unsafe_allow_html=True)
 st.write("---")
 
