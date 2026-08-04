@@ -42,12 +42,12 @@ def enviar_notificacion_vendedor(destinatario_principal, destinatario_secundario
             
             cuerpo = f"""Hola,
             
-Te informamos que el vehículo {vehiculo} (Modelo: {modelo}) (Solicitud: {id_sol}) ya ha sido terminado por nuestro equipo en Carshield Coatings.
+Te informamos que el vehículo {vehiculo} (Modelo: {modelo}) (Solicitud: {id_sol}) ya ha sido terminado por nuestro equipo.
 
-El auto está listo en nuestras instalaciones para que coordinen su entrega.
+El auto está listo para que coordinen su entrega.
 
 Saludos cordiales,
-Equipo Carshield Coatings"""
+V clean"""
             
             msg.attach(MIMEText(cuerpo, 'plain'))
             
