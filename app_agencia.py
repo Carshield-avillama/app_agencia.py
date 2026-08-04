@@ -27,7 +27,6 @@ st.write("---")
 # --- FUNCIONES DE CORREO ---
 def enviar_notificacion_vendedor(destinatario, vehiculo, id_sol):
     try:
-        # Verifica si los secretos de correo existen
         if "email_config" in st.secrets:
             remitente = st.secrets["email_config"]["correo"]
             password = st.secrets["email_config"]["clave"]
@@ -71,21 +70,37 @@ try:
     client = get_gspread_client()
     hoja_agencia = client.open("Carshield_BaseDatos_App").worksheet("Solicitudes_Agencia")
 except Exception as e:
-    st.error(f"Error de conexión. Asegúrate de haber creado la pestaña 'Solicitudes_Agencia': {e}")
+    st.error(f"Error de conexión: {e}")
     st.stop()
 
 def load_data():
     records = hoja_agencia.get_all_records()
     if not records:
-        # Se agregó la columna Correo_Vendedor
         return pd.DataFrame(columns=["ID_Solicitud", "Fecha_Solicitud", "Solicitante", "Vendedor", "Correo_Vendedor", "Vehiculo_Placa_VIN", "Fecha_Requerida", "Estado_Servicio", "Estado_Facturacion", "Num_Factura", "Observaciones"])
     return pd.DataFrame(records)
 
 df = load_data()
 
-# --- NAVEGACIÓN ---
-menu = ["1. Nueva Solicitud (Agencia)", "2. Operaciones (Taller)", "3. Control de Facturación"]
-choice = st.sidebar.radio("Menú de Acceso", menu)
+# --- SISTEMA DE SEGURIDAD Y NAVEGACIÓN ---
+st.sidebar.markdown("### Menú de Acceso")
+
+# 1. Definir la contraseña de administrador
+PASSWORD_ADMIN = "Vclean2026"
+
+# 2. Crear un campo de contraseña en la barra lateral
+clave_ingresada = st.sidebar.text_input("🔒 Acceso Administrativo", type="password", help="Solo para personal de Carshield")
+
+# 3. Lógica para mostrar u ocultar pestañas
+if clave_ingresada == PASSWORD_ADMIN:
+    st.sidebar.success("Acceso interno concedido")
+    menu = ["1. Nueva Solicitud (Agencia)", "2. Operaciones (Taller)", "3. Control de Facturación"]
+else:
+    menu = ["1. Nueva Solicitud (Agencia)"]
+    if clave_ingresada != "":
+        st.sidebar.error("Clave incorrecta")
+
+choice = st.sidebar.radio("Ir a:", menu)
+
 
 # ==========================================
 # 1. PERFIL: AGENCIA (NUEVA SOLICITUD)
@@ -148,15 +163,12 @@ elif choice == "2. Operaciones (Taller)":
                         nuevo_estado = st.selectbox("Estado del Servicio", ["Recibido / Pendiente", "En Proceso", "Terminado y Entregado"], index=["Recibido / Pendiente", "En Proceso", "Terminado y Entregado"].index(estado_actual))
                         
                         if st.form_submit_button("Actualizar Taller"):
-                            # Si el estado cambió a Terminado y no estaba así antes
                             if nuevo_estado == "Terminado y Entregado" and estado_actual != "Terminado y Entregado":
                                 correo_dest = filtro.loc[idx, "Correo_Vendedor"]
                                 vehiculo_info = filtro.loc[idx, "Vehiculo_Placa_VIN"]
                                 
-                                # Actualizar la hoja
                                 hoja_agencia.update(range_name=f"H{fila_sheet}:H{fila_sheet}", values=[[nuevo_estado]])
                                 
-                                # Enviar el correo
                                 if correo_dest and "@" in correo_dest:
                                     enviado = enviar_notificacion_vendedor(correo_dest, vehiculo_info, id_buscar)
                                     if enviado:
@@ -166,7 +178,6 @@ elif choice == "2. Operaciones (Taller)":
                                 else:
                                     st.success("✅ Estado actualizado a 'Terminado'. (No se envió correo por falta de dirección válida).")
                             else:
-                                # Solo actualizar el estado
                                 hoja_agencia.update(range_name=f"H{fila_sheet}:H{fila_sheet}", values=[[nuevo_estado]])
                                 st.success("✅ Estado actualizado correctamente.")
                 else:
@@ -203,7 +214,6 @@ elif choice == "3. Control de Facturación":
                     
                     if st.form_submit_button("Marcar como Facturado"):
                         if num_factura:
-                            # Actualiza Estado_Facturacion (I) y Num_Factura (J) (Considerando que se agregó la columna Correo_Vendedor)
                             hoja_agencia.update(range_name=f"I{fila_sheet_fac}:J{fila_sheet_fac}", values=[["Facturado", num_factura]])
                             st.success(f"✅ El vehículo {id_fac} ha sido facturado correctamente con la factura {num_factura}.")
                         else:
