@@ -20,7 +20,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("PORTAL DE SERVICIOS B2B")
+st.title("PORTAL DE SERVICIOS Autostar")
 st.markdown("<h4 style='text-align: center;'>Solicitud de Recubrimientos Cerámicos</h4>", unsafe_allow_html=True)
 st.write("---")
 
