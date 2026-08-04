@@ -155,7 +155,7 @@ if choice == "1. Nueva Solicitud (Agencia)":
             vendedor = st.text_input("Nombre del vendedor asignado al auto *")
             correo_vendedor = st.text_input("Correo electrónico del vendedor (Para notificarle cuando esté listo) *")
         with col2:
-            vehiculo = st.text_input("Marca, Modelo, Color y Placa/VIN *")
+            vehiculo = st.text_input("Placa/VIN completo *")
             fecha_req = st.date_input("Fecha para la que necesitan el auto listo *")
             
         notas = st.text_area("Servicios específicos u observaciones extra")
